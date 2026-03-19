@@ -1,11 +1,27 @@
 import axios from "axios";
 
+const AUTH_STORAGE_KEY = "lifequest.auth.session";
+
 const axiosInstance = axios.create({
   baseURL: "http://127.0.0.1:8000",
   timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
+});
+
+axiosInstance.interceptors.request.use((config) => {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    const token = raw ? JSON.parse(raw)?.token : "";
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch {
+    // Ignore auth storage parse issues and continue unauthenticated.
+  }
+  return config;
 });
 
 axiosInstance.interceptors.response.use(

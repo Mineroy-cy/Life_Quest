@@ -9,7 +9,7 @@ export default function ProjectProgressBar({ percentage = 0 }) {
       </div>
       <div className="h-2.5 rounded-full bg-slate-200">
         <div
-          className="h-2.5 rounded-full bg-gradient-to-r from-teal-500 to-cyan-500 transition-all"
+          className="h-2.5 rounded-full bg-linear-to-r from-teal-500 to-cyan-500 transition-all"
           style={{ width: `${value}%` }}
         />
       </div>

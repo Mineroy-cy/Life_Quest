@@ -6,18 +6,83 @@ import TasksPage from "./pages/TasksPage";
 import ChallengesPage from "./pages/ChallengesPage";
 import EvidencePage from "./pages/EvidencePage";
 import SettingsPage from "./pages/SettingsPage";
+import AuthPage from "./pages/AuthPage";
+import { useAuth } from "./contexts/AuthContext";
+
+function ProtectedRoute({ children }) {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+  return children;
+}
 
 function App() {
+  const { isAuthenticated } = useAuth();
+
   return (
     <Routes>
-      <Route path="/" element={<DashboardPage />} />
-      <Route path="/projects" element={<ProjectsPage />} />
-      <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-      <Route path="/tasks" element={<TasksPage />} />
-      <Route path="/challenges" element={<ChallengesPage />} />
-      <Route path="/evidence" element={<EvidencePage />} />
-      <Route path="/settings" element={<SettingsPage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route
+        path="/auth"
+        element={isAuthenticated ? <Navigate to="/" replace /> : <AuthPage />}
+      />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects"
+        element={
+          <ProtectedRoute>
+            <ProjectsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId"
+        element={
+          <ProtectedRoute>
+            <ProjectDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tasks"
+        element={
+          <ProtectedRoute>
+            <TasksPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/challenges"
+        element={
+          <ProtectedRoute>
+            <ChallengesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/evidence"
+        element={
+          <ProtectedRoute>
+            <EvidencePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to={isAuthenticated ? "/" : "/auth"} replace />} />
     </Routes>
   );
 }

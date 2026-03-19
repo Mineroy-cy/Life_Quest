@@ -1,10 +1,13 @@
 from fastapi import FastAPI
+from fastapi import Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.project_routes import router as project_router
 from app.routes.task_routes import router as task_router
 from app.routes.challenge_routes import router as challenge_router
 from app.routes.evidence_routes import router as evidence_router
 from app.routes.obstacle_routes import router as obstacle_router
+from app.routes.auth_routes import router as auth_router
+from app.core.security import get_current_user
 
 app = FastAPI(title="Life Quest Agent")
 
@@ -23,7 +26,9 @@ app.add_middleware(
 
 # Register routes
 app.include_router(project_router, prefix="/projects", tags=["Projects"])
-app.include_router(task_router, prefix="/tasks", tags=["Tasks"])
-app.include_router(challenge_router, prefix="/challenges", tags=["Challenges"])
-app.include_router(evidence_router, prefix="/evidence", tags=["Evidence"])
-app.include_router(obstacle_router, prefix="/obstacles", tags=["Obstacles"])
+app.include_router(task_router, prefix="/tasks", tags=["Tasks"], dependencies=[Depends(get_current_user)])
+app.include_router(challenge_router, prefix="/challenges", tags=["Challenges"], dependencies=[Depends(get_current_user)])
+app.include_router(evidence_router, prefix="/evidence", tags=["Evidence"], dependencies=[Depends(get_current_user)])
+app.include_router(obstacle_router, prefix="/obstacles", tags=["Obstacles"], dependencies=[Depends(get_current_user)])
+app.include_router(project_router, prefix="/projects", tags=["Projects"], dependencies=[Depends(get_current_user)])
+app.include_router(auth_router, prefix="/auth", tags=["Auth"])
