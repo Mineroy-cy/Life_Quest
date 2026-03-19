@@ -1,0 +1,47 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap");
+
+@import "tailwindcss";
+
+@theme {
+	--font-display: "Space Grotesk", "Segoe UI", sans-serif;
+	--font-sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+:root {
+	--app-bg-1: #f3fbf9;
+	--app-bg-2: #e8eefc;
+	--app-bg-3: #ffffff;
+}
+
+body {
+	margin: 0;
+	min-height: 100vh;
+	font-family: var(--font-sans);
+	color: #0f172a;
+	background-color: var(--app-bg-3);
+}
+
+#root {
+	min-height: 100vh;
+}
+
+.bg-app-pattern {
+	background-image:
+		radial-gradient(circle at 10% 20%, var(--app-bg-1), transparent 45%),
+		radial-gradient(circle at 90% 10%, var(--app-bg-2), transparent 40%),
+		linear-gradient(180deg, #ffffff, #f8fafc 60%);
+}
+
+.input {
+	width: 100%;
+	border: 1px solid #cbd5e1;
+	border-radius: 0.75rem;
+	padding: 0.6rem 0.75rem;
+	background: #ffffff;
+	color: #0f172a;
+}
+
+.input:focus {
+	outline: 2px solid #155e75;
+	outline-offset: 1px;
+}
