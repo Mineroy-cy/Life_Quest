@@ -12,3 +12,21 @@ DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", os.getenv("GENAI_MODEL", "deepseek-
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-this-in-production").strip()
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256").strip()
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "1440").strip())
+
+
+def _parse_csv_env(value: str | None, fallback: list[str]) -> list[str]:
+	if not value:
+		return fallback
+	items = [item.strip() for item in value.split(",")]
+	return [item for item in items if item]
+
+
+CORS_ORIGINS = _parse_csv_env(
+	os.getenv("CORS_ORIGINS"),
+	[
+		"http://localhost:5173",
+		"http://127.0.0.1:5173",
+		"http://localhost:5174",
+		"http://127.0.0.1:5174",
+	],
+)

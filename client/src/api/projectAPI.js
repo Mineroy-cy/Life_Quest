@@ -33,6 +33,13 @@ export const projectAPI = {
     return data;
   },
 
+  updatePriority: async (projectId, priority) => {
+    const { data } = await axiosInstance.patch(`/projects/${projectId}/priority`, {
+      priority: Number(priority),
+    });
+    return data;
+  },
+
   getDifficultyScore: async (projectId) => {
     const { data } = await axiosInstance.get(`/projects/${projectId}/difficulty-score`);
     return data;

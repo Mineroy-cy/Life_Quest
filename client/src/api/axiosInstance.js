@@ -1,10 +1,11 @@
 import axios from "axios";
 
 const AUTH_STORAGE_KEY = "lifequest.auth.session";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
 const axiosInstance = axios.create({
-  baseURL: "http://127.0.0.1:8000",
-  timeout: 30000,
+  baseURL: API_BASE_URL,
+  timeout: 120000,
   headers: {
     "Content-Type": "application/json",
   },

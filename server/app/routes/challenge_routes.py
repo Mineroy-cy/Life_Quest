@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from app.services.difficulty_engine import analyze_project_difficulty
 from app.services.ai_service import split_project_into_tasks
 from app.services.task_splitter import _call_ai
+from app.services.weekly_planner import get_weekly_priority_project_ids, mark_weekly_objective_stale
 import json
 
 
@@ -510,6 +511,9 @@ def get_project_daily_challenge(
 @router.get("/daily-priority")
 def get_daily_priority_challenges(available_minutes: int = Query(..., ge=1)):
     projects = list(projects_collection.find({"status": {"$ne": "completed"}}))
+    weekly_project_ids = set(get_weekly_priority_project_ids())
+    if weekly_project_ids:
+        projects = [p for p in projects if str(p.get("_id")) in weekly_project_ids]
     projects.sort(key=lambda p: (-_project_urgency_score(p), str(p.get("deadline", "9999-12-31"))))
 
     # Distribute today's minutes across prioritized projects.
@@ -542,19 +546,63 @@ def get_daily_priority_challenges(available_minutes: int = Query(..., ge=1)):
 
 @router.get("/active-by-project")
 def list_active_challenges_by_project():
+    """
+    Efficiently retrieve active challenges grouped by project.
+    Uses aggregation to avoid N+1 query pattern.
+    """
+    # Get all active challenges grouped by project_id in one query
+    challenge_pipeline = [
+        {
+            "$match": {
+                "status": {"$in": ACTIVE_CHALLENGE_STATUSES}
+            }
+        },
+        {
+            "$addFields": {
+                "project_id_str": {"$toString": "$project_id"}
+            }
+        },
+        {
+            "$sort": {"accepted_at": -1, "_id": -1}
+        },
+        {
+            "$group": {
+                "_id": "$project_id_str",
+                "challenge": {"$first": "$$ROOT"}
+            }
+        }
+    ]
+    
+    challenge_groups = list(challenges_collection.aggregate(challenge_pipeline))
+    
+    # Create a map of project_id -> challenge
+    challenge_map = {}
+    for group in challenge_groups:
+        project_id = group["_id"]
+        if project_id:
+            challenge_map[str(project_id)] = _normalize_challenge_doc(group["challenge"])
+    
+    # Get all non-completed projects and sort them
     projects = list(projects_collection.find({"status": {"$ne": "completed"}}))
-    projects.sort(key=lambda p: (-int(p.get("priority", 0)), str(p.get("deadline", "9999-12-31"))))
-
+    projects.sort(
+        key=lambda p: (-int(p.get("priority", 0)), str(p.get("deadline", "9999-12-31")))
+    )
+    
+    # Build response with projects and their active challenges
     rows = []
     for project in projects:
         pid = str(project.get("_id"))
-        challenge = challenges_collection.find_one(
-            {
-                "project_id": {"$in": _to_project_id_variants(pid)},
-                "status": {"$in": ACTIVE_CHALLENGE_STATUSES},
-            },
-            sort=[("accepted_at", -1), ("_id", -1)],
-        )
+        
+        # Look for challenge in map (handles both string and ObjectId project_ids)
+        challenge = challenge_map.get(pid)
+        if not challenge:
+            # Try with ObjectId representation
+            try:
+                oid = ObjectId(pid)
+                challenge = challenge_map.get(str(oid))
+            except Exception:
+                pass
+        
         if challenge:
             rows.append(
                 {
@@ -564,10 +612,10 @@ def list_active_challenges_by_project():
                         "priority": project.get("priority", 0),
                         "deadline": project.get("deadline"),
                     },
-                    "challenge": _normalize_challenge_doc(challenge),
+                    "challenge": challenge,
                 }
             )
-
+    
     return rows
 
 
@@ -614,6 +662,7 @@ def accept_challenge(challenge_id: str, payload: AcceptChallengeRequest):
         update_doc["proof_scheme"] = payload.proof_scheme
     if payload.challenge_description is not None:
         update_doc["challenge_description"] = payload.challenge_description
+        mark_weekly_objective_stale(str(challenge.get("project_id")))
     if payload.proof_instructions is not None:
         update_doc["proof_instructions"] = payload.proof_instructions
 

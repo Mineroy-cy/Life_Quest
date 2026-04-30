@@ -19,6 +19,7 @@ from app.core.database import (
 from app.services.ai_service import split_project_into_tasks
 from app.services.progress_service import persist_project_progress
 from app.services.difficulty_engine import analyze_project_difficulty
+from app.services.weekly_planner import mark_weekly_objective_stale
 
 router = APIRouter()
 AI_SPLIT_TIMEOUT_SECONDS = 60
@@ -297,6 +298,10 @@ class TimelineUpdate(BaseModel):
     duration_unit: Literal["days", "hours", "minutes"] | None = None
 
 
+class PriorityUpdate(BaseModel):
+    priority: int
+
+
 @router.patch("/{project_id}/description")
 def update_project_description(project_id: str, payload: DescriptionUpdate):
     # Load project
@@ -363,6 +368,7 @@ def update_project_description(project_id: str, payload: DescriptionUpdate):
         {"_id": project.get("_id")},
         {"$set": {"description": payload.description, "task_ids": kept_ids + new_task_ids}},
     )
+    mark_weekly_objective_stale(project_id)
 
     response = {
         "project_id": project_id,
@@ -423,10 +429,34 @@ def update_project_timeline(project_id: str, payload: TimelineUpdate):
         raise HTTPException(status_code=400, detail="No timeline fields to update")
 
     projects_collection.update_one(project_filter, {"$set": update_fields})
+    mark_weekly_objective_stale(project_id)
 
     updated = projects_collection.find_one(project_filter)
     if not updated:
         raise HTTPException(status_code=500, detail="Failed to load updated project")
+    updated["_id"] = str(updated["_id"])
+    return updated
+
+
+@router.patch("/{project_id}/priority")
+def update_project_priority(project_id: str, payload: PriorityUpdate):
+    priority = int(payload.priority)
+    if priority < 1:
+        raise HTTPException(status_code=400, detail="Priority must be at least 1")
+
+    try:
+        project_filter = {"_id": ObjectId(project_id)}
+        project = projects_collection.find_one(project_filter)
+    except Exception:
+        project_filter = {"_id": project_id}
+        project = projects_collection.find_one(project_filter)
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    projects_collection.update_one(project_filter, {"$set": {"priority": priority}})
+    mark_weekly_objective_stale(str(project.get("_id")))
+    updated = projects_collection.find_one(project_filter)
     updated["_id"] = str(updated["_id"])
     return updated
 

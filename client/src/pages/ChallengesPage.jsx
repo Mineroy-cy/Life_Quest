@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import PageContainer from "../components/layout/PageContainer";
 import { useChallengeContext } from "../contexts/ChallengeContext";
 import { challengeAPI } from "../api/challengeAPI";
@@ -21,6 +21,7 @@ export default function ChallengesPage() {
   const [proofScheme, setProofScheme] = useState("");
   const [durationMinutes, setDurationMinutes] = useState(30);
   const [suggestionSkills, setSuggestionSkills] = useState({});
+  const preselectedProjectId = new URLSearchParams(window.location.search).get("projectId") || "";
 
   const selectedItem = useMemo(
     () => projectItems.find((item) => item.project._id === selectedProjectId),
@@ -80,9 +81,10 @@ export default function ChallengesPage() {
       }
 
       setProjectItems(items);
+      const preferredSelectedId = selectedProjectId || preselectedProjectId;
       const keepSelected =
-        selectedProjectId && items.some((item) => item.project?._id === selectedProjectId)
-          ? selectedProjectId
+        preferredSelectedId && items.some((item) => item.project?._id === preferredSelectedId)
+          ? preferredSelectedId
           : null;
       setSelectedProjectId(keepSelected);
       if (keepSelected) {
@@ -97,6 +99,11 @@ export default function ChallengesPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!preselectedProjectId) return;
+    runPlanner(Math.max(Number(dailyMinutes) || 60, 1));
+  }, []);
 
   const selectProject = (projectId) => {
     setSelectedProjectId(projectId);

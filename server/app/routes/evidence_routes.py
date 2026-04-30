@@ -3,6 +3,7 @@ from app.models.evidence import Evidence
 from app.core.database import evidence_collection, tasks_collection, challenges_collection
 from app.services.verification_engine import verify_task_completion
 from app.services.progress_service import persist_project_progress
+from app.services.weekly_planner import mark_weekly_challenges_done
 from bson import ObjectId
 from datetime import datetime, timezone
 
@@ -180,6 +181,7 @@ def submit_evidence(evidence: Evidence):
     if verification_result:
         project_id = _resolve_project_id_for_progress(challenge, task_ids_to_mark)
         if project_id:
+            mark_weekly_challenges_done(project_id, task_ids_to_mark)
             progress = persist_project_progress(project_id)
 
     return {

@@ -6,6 +6,7 @@ import TasksPage from "./pages/TasksPage";
 import ChallengesPage from "./pages/ChallengesPage";
 import EvidencePage from "./pages/EvidencePage";
 import SettingsPage from "./pages/SettingsPage";
+import WeeklyObjectivesPage from "./pages/WeeklyObjectivesPage";
 import AuthPage from "./pages/AuthPage";
 import { useAuth } from "./contexts/AuthContext";
 
@@ -63,6 +64,14 @@ function App() {
         element={
           <ProtectedRoute>
             <ChallengesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/weekly"
+        element={
+          <ProtectedRoute>
+            <WeeklyObjectivesPage />
           </ProtectedRoute>
         }
       />

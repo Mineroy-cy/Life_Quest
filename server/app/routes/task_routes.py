@@ -13,43 +13,113 @@ router = APIRouter()
 
 @router.get("/grouped")
 def get_tasks_grouped_by_project():
+    """
+    Efficiently retrieve tasks grouped by project using aggregation pipeline.
+    Replaces N+1 query pattern with a single aggregation.
+    """
+    # Get all projects and sort them
     projects = list(projects_collection.find())
-    projects.sort(key=lambda p: (-int(p.get("priority", 0)), str(p.get("deadline", "9999-12-31"))))
-
-    grouped = []
-    for project in projects:
-        project_id = str(project.get("_id"))
-        tasks = list(tasks_collection.find({"project_id": project_id}))
-        if not tasks:
-            try:
-                tasks = list(tasks_collection.find({"project_id": ObjectId(project_id)}))
-            except Exception:
-                tasks = []
-
-        tasks.sort(key=lambda t: (t.get("order", 9999), t.get("day_number", 9999)))
-        normalized_tasks = []
-        for task in tasks:
-            task["_id"] = str(task["_id"])
-            task["project_id"] = str(task.get("project_id", project_id))
-            task["is_done"] = bool(task.get("completed") or task.get("completion_status") == "done")
-            normalized_tasks.append(task)
-
-        grouped.append(
-            {
-                "project": {
-                    "_id": project_id,
-                    "name": project.get("name"),
-                    "priority": project.get("priority", 0),
-                    "deadline": project.get("deadline"),
-                    "status": project.get("status", "active"),
-                    "progress_percentage": project.get("progress_percentage", 0),
-                },
-                "task_count": len(normalized_tasks),
-                "completed_count": sum(1 for t in normalized_tasks if t.get("is_done")),
-                "tasks": normalized_tasks,
+    projects_map = {}
+    for p in projects:
+        projects_map[str(p.get("_id"))] = {
+            "_id": str(p.get("_id")),
+            "name": p.get("name"),
+            "priority": int(p.get("priority", 0)),
+            "deadline": p.get("deadline"),
+            "status": p.get("status", "active"),
+            "progress_percentage": p.get("progress_percentage", 0),
+        }
+    
+    # Sort projects by priority and deadline
+    sorted_project_ids = sorted(
+        projects_map.keys(),
+        key=lambda pid: (-projects_map[pid]["priority"], str(projects_map[pid].get("deadline", "9999-12-31")))
+    )
+    
+    # Use aggregation to get all tasks with their projects in one query
+    pipeline = [
+        {
+            "$addFields": {
+                "project_id_str": {"$toString": "$project_id"},
+                "is_done": {
+                    "$in": [
+                        {"$getField": "completion_status"},
+                        ["done"]
+                    ]
+                }
             }
-        )
-
+        },
+        {
+            "$group": {
+                "_id": "$project_id_str",
+                "tasks": {
+                    "$push": {
+                        "_id": {"$toString": "$_id"},
+                        "project_id": "$project_id_str",
+                        "title": "$title",
+                        "description": "$description",
+                        "order": "$order",
+                        "day_number": "$day_number",
+                        "completed": "$completed",
+                        "is_done": {
+                            "$or": [
+                                {"$eq": ["$completed", True]},
+                                {"$eq": ["$completion_status", "done"]}
+                            ]
+                        },
+                        "difficulty": "$difficulty",
+                        "time_estimate_minutes": "$time_estimate_minutes"
+                    }
+                },
+                "task_count": {"$sum": 1},
+                "completed_count": {
+                    "$sum": {
+                        "$cond": [
+                            {
+                                "$or": [
+                                    {"$eq": ["$completed", True]},
+                                    {"$eq": ["$completion_status", "done"]}
+                                ]
+                            },
+                            1,
+                            0
+                        ]
+                    }
+                }
+            }
+        }
+    ]
+    
+    task_groups = list(tasks_collection.aggregate(pipeline))
+    
+    # Build grouped result preserving project order
+    grouped = []
+    for project_id in sorted_project_ids:
+        if project_id not in projects_map:
+            continue
+        
+        project_data = projects_map[project_id]
+        task_group = next((g for g in task_groups if g["_id"] == project_id), None)
+        
+        tasks = []
+        task_count = 0
+        completed_count = 0
+        
+        if task_group:
+            tasks = sorted(
+                task_group["tasks"],
+                key=lambda t: (t.get("order", 9999), t.get("day_number", 9999))
+            )
+            task_count = task_group["task_count"]
+            completed_count = task_group["completed_count"]
+        
+        grouped.append({
+            "project": project_data,
+            "task_count": task_count,
+            "completed_count": completed_count,
+            "tasks": tasks,
+        })
+    
     return grouped
 
 

@@ -8,10 +8,13 @@ export default function ProjectEditPanel({ project, onUpdated }) {
   const [deadline, setDeadline] = useState(project?.deadline || toIsoDate(new Date()));
   const [durationValue, setDurationValue] = useState(project?.duration_value ?? "");
   const [durationUnit, setDurationUnit] = useState(project?.duration_unit || "days");
+  const [priority, setPriority] = useState(project?.priority ?? 1);
   const [loadingDescription, setLoadingDescription] = useState(false);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
+  const [loadingPriority, setLoadingPriority] = useState(false);
   const [errorDescription, setErrorDescription] = useState("");
   const [errorTimeline, setErrorTimeline] = useState("");
+  const [errorPriority, setErrorPriority] = useState("");
 
   useEffect(() => {
     setDescription(project?.description || "");
@@ -19,6 +22,7 @@ export default function ProjectEditPanel({ project, onUpdated }) {
     setDeadline(project?.deadline || toIsoDate(new Date()));
     setDurationValue(project?.duration_value ?? "");
     setDurationUnit(project?.duration_unit || "days");
+    setPriority(project?.priority ?? 1);
   }, [project]);
 
   const saveDescription = async () => {
@@ -66,6 +70,25 @@ export default function ProjectEditPanel({ project, onUpdated }) {
     }
   };
 
+  const savePriority = async () => {
+    if (!project?._id) return;
+    try {
+      setLoadingPriority(true);
+      setErrorPriority("");
+      const value = Number(priority);
+      if (!Number.isFinite(value) || value < 1) {
+        throw new Error("Priority must be at least 1");
+      }
+      const updated = await projectAPI.updatePriority(project._id, value);
+      setPriority(updated?.priority ?? value);
+      onUpdated?.();
+    } catch (err) {
+      setErrorPriority(err.message);
+    } finally {
+      setLoadingPriority(false);
+    }
+  };
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <h3 className="font-display text-lg font-semibold text-slate-900">Project Edit Panel</h3>
@@ -82,6 +105,27 @@ export default function ProjectEditPanel({ project, onUpdated }) {
       >
         {loadingDescription ? "Updating..." : "Update Description"}
       </button>
+
+      <div className="mt-5 border-t border-slate-200 pt-4">
+        <h4 className="text-sm font-semibold text-slate-900">Priority</h4>
+        {errorPriority ? <p className="mt-1 text-sm text-rose-700">{errorPriority}</p> : null}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            className="input max-w-40"
+            type="number"
+            min="1"
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+          />
+          <button
+            onClick={savePriority}
+            disabled={loadingPriority}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
+          >
+            {loadingPriority ? "Saving..." : "Save Priority"}
+          </button>
+        </div>
+      </div>
 
       <div className="mt-5 border-t border-slate-200 pt-4">
         <h4 className="text-sm font-semibold text-slate-900">Timeline</h4>
